@@ -6,13 +6,9 @@ import os.path
 from functools import reduce
 from pyexcel_xls import get_data
 
-
-
 file_path = os.getcwd()			# path of xls and xls2dat.py filse
 
-
 all_files = os.listdir(file_path)			# number of files in file_path
-
 
 for f in all_files:			# removing of unnecessary files
     if (not (f.endswith('.xlsx') or f.endswith('.xls'))):
@@ -22,14 +18,11 @@ for f in all_files:			# removing of unnecessary files
 new_dat = open('new_dat_file.dat', 'w', encoding = 'utf-8')			# creating of new dat file
 
 
-
-
 for i, item in enumerate(all_files):
 	
     xls_file_path = os.path.join(file_path, all_files[i])
 
     xls_file = get_data(xls_file_path, start_row = 0, row_limit = 7)			# getting data from xls file
-
 
     if i == 0:
 
