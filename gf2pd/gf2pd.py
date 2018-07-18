@@ -2,11 +2,11 @@
 """
 Created on Fri Jul  6 15:32:15 2018
 
-@author: Артём
+@author: Artem Gorbunov
 """
 
-# файл для конвертации dat-файлов general array data format в 
-# pole-dipole data types
+# script converts general array dat-files (forward and reverse) to conventional pole-dipole array data-file (forward+reverse)
+# this file could be used in programs for inversion of geophysical (electrical tomography) data
 
 
 import os
@@ -17,47 +17,46 @@ import numpy as np
 #-------*-------*-------*-------*-------*-------*-------*-------*-------  
 
 
-# функция для поиска файла в текущей директории
 def findFiles(file_format):
     """
-    Функция для поиска списка файлов формата file_format в текущей директории
-    file_format = 'csv', 'txt', 'dat' и др.
-    На выходе получаем list со всеми файлами указанного формата
+    Return list of .file_format files in current directory
+    
+    file_formats: 'csv', 'doc', 'xls' etc.
     """
     try:
         all_files_in_folder = os.listdir(os.getcwd())
         files = [file for file in all_files_in_folder if file_format in file]
         return files
     except TypeError:
-        print('Формат файла должен быть строкой')
+        print('File format must be string')
 
 
-# функция для выбора файла из списка
 def chooseFile(some_files):
     """
-    Возвращает имя файла к обработке
+    Return names of forward and reverse array files for other manipulations
+    
+    Input: some_files - list with file's names
+    Output: two file names of forward and reverse arrays files for convertion
     """
     try:
-        print('Выберите файлы для конвертации: ')
+        print('Choose files: ')
         for num, file in enumerate(some_files):
             print(num, ': ', file) # printing list of files in some directory
-        choice1 = int(input('Введите номер файла AMN: '))
-        choice2 = int(input('Введите номер файла MNB: '))
+        choice1 = int(input('Enter index of C1P1P2 array file: '))
+        choice2 = int(input('Enter index of P2P1C1 array file: '))
         return [some_files[choice1],some_files[choice2]]
     except:
-        print('Ой! Что пошло не так. Проверьте исходный код =((( ')
+        print('Oops! Something goes wrong!')
         
 
-# создание пути, открытие файла и формирование массивов со служебной инфой
-# и данными
 def DataFrameCreation(file_name):
     """
-    Создаёт два объекта: 1) массив со служебной информацией и 
-    2) DataFrame с переформатированными данными (C1, P1, P2)
+    Return two object: 1) list with general information (name, general array type, electrode spacing etc.), 
+    2) DataFrame object with formatted data (C1, P1, P2 electrode position)
     
-    Input: имя файла для конвертирования
-    Output: массив данных с общей информацией (f_info),
-            frame с неформатированными данными из general data type
+    Input: file_name - name of file (string)
+    Output: f_info - list with general information
+            f_dataFrame - DataFrame object with formatted data
     """
     file_path = os.path.join(os.getcwd(), file_name)
     f = open (file_path, 'r')
@@ -72,15 +71,13 @@ def DataFrameCreation(file_name):
     return f_info, f_dataFrame
 
 
-# создание нового массива в формате pole-dipole data type
 def PDDataFrame(df,file_name):
     """
-    Создаёт новый DataFrame, содержащий данные в формате pole-dipole 
-    data type
+    Return new DataFrame object with forward and reverse data in conventional format
     
-    Input: массив с неформатированными данными (df)
-           имя форматируемого файла (file_name)
-    Output: отформатированный массив с данными
+    Input: df - DataFrame object with initial data
+           file_name - file name of converted file
+    Output: DataFrame object with formatted data
     """
     df_new = pd.DataFrame(np.zeros(df.shape),columns=['x','a','n','Ro'])
     df_new.a = np.abs(df.P1-df.P2)
@@ -96,63 +93,55 @@ def PDDataFrame(df,file_name):
     return df_new
 
 
-# создание нового .dat-файла формата pole-dipole array type с 
-# прямой и обратной установками
 def pdfile(i1, i2, d1, d2):
     """
-    Формирует и выводит файл формата pole-dipole data type
-    
-    Input: два массива (i1,i2) с информационной частью из general data и
-           два frame-а (d1,d2) с обработанными и сформированными данными
-    Output: файл формата .dat для обработки в программе Res2DInv 
+    Create and save new .dat file in conventional data type format
+     
+    Input: i1, i2 - lists with general information of forward and reverse data files
+           d1, d2 - DataFrame objects with formatted data
+    Output: .dat format file for invrsion in Res2dInv or ZondRes2D
     """
-    # создание временного файла с сортированными файлами
+    # creation of temp file with sorted data
     all_data = pd.concat([d1,d2],join='outer',ignore_index=True)
     all_data.to_csv('temp.dat',sep=',',index=False,header=False)
     
     file_name = '{}_{}'.format(i1[0].strip('.dat\n'),i2[0].strip('.dat\n'))
-    # создание результирующего файла
+    # creation of dat-file
     f = open(file_name + '.dat', 'x')
-    # строка 1 - название файла
+    # line 1 - file name
     f.write(file_name + '\n')
-    # строка 2 - расстояние между электродами
+    # line 2 - electrode spacing
     f.write(i1[1])
-    # строка 3 - тип установки (6 для pole-dipole)
+    # line 3 - array type (6 - pole-dipole)
     f.write('6\n')
-    # строка 4 - количество отсчётов (записей)
+    # line 4 - number of data points
     f.write(str(all_data.shape[0])+'\n')
-    # строка 5 - точка отсчёта (0-для первого электрода, 1-для середины C1-P2)
+    # line 5 - position of data point (0-first electrode, 1-half C1-P2 distance)
     f.write('1\n')
-    # строка 6 - данные ВП (0-без ВП, 1-с ВП)
+    # line 6 - IP data (0-no, 1-yes)
     f.write('0\n')
-    # запись массива данных из файла temp.dat
+    # import data from temp.dat file
     with open('temp.dat','r') as t:
         f.writelines(t.readlines())
         t.close()
-        os.remove('temp.dat') # удаление временного файла temp.dat
-    # последняя строка с несколькими нулями
+        os.remove('temp.dat') # removing of temp.dat file
+    # last line with some zeros
     f.write('0,0,0,0,0')
     f.close()
 
 
 #-------*-------*-------*-------*-------*-------*-------*-------*-------  
   
-# выбор файлов для AMN и MNB для конвертации и суммирования      
+# choosing of files   
 files = chooseFile(findFiles('dat'))
 
-# выбор из файлов для AMN и MNB блока, содержащего информацию 
-# и отсортированной таблицы с данными
+# choosing from files blocks with general information and data
 information1,data1 = DataFrameCreation(files[0])
 information2,data2 = DataFrameCreation(files[1])
 
-# формирования объекта DataFrame с заново сформированными данными
+# creation of DataFrame object with formatted data
 data1n = PDDataFrame(data1,files[0])
 data2n = PDDataFrame(data2, files[1])
 
-
+# creation of final dat-file
 pdfile(information1,information2,data1n,data2n)
-
-
-
-        
-
